@@ -12,6 +12,12 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: LibreDWG/libredwg
+          ref: d9468ae948b8f07a08efa756c19f8916052358c0
+          path: android/app/libredwg-src
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -23,6 +29,8 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+      - name: Install Android NDK and CMake
+        run: sdkmanager 'ndk;27.2.12479018' 'cmake;3.22.1'
       - name: Install dependencies
         run: npm ci
       - name: Prepare Android project

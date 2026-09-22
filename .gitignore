@@ -12,6 +12,7 @@ android/app/build/
 android/local.properties
 android/captures/
 android/.cxx/
+android/app/libredwg-src/
 *.apk
 *.aab
 

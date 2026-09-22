@@ -1,4 +1,5 @@
 import { replaceExtension } from "../files/fileTypes";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { inspectDwgInput } from "./diagnostics";
 import {
   AppError,
@@ -27,6 +28,21 @@ type DwgWorkerResponse =
 
 const CONVERSION_TIMEOUT_MS = 3 * 60 * 1000;
 let conversionId = 0;
+const nativeDwg = registerPlugin<{ convert(options: { data: string }): Promise<{ data: string }> }>("NativeDwg");
+
+async function nativeConversion(file: File): Promise<File> {
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result).split(",", 2)[1]);
+    reader.readAsDataURL(file);
+  });
+  const result = await nativeDwg.convert({ data: base64 });
+  const bytes = Uint8Array.from(atob(result.data), (character) => character.charCodeAt(0));
+  return new File([bytes], replaceExtension(file.name, "dxf"), {
+    type: "application/dxf", lastModified: Date.now(),
+  });
+}
 
 function abortError(): DOMException {
   return new DOMException("DWG conversion was cancelled.", "AbortError");
@@ -129,6 +145,16 @@ export async function convertDwgToDxf(
   signal?: AbortSignal,
 ): Promise<File> {
   try {
+    if (Capacitor.isNativePlatform() && file.size <= 32 * 1024 * 1024) {
+      try {
+        const nativeFile = await nativeConversion(file);
+        if (signal?.aborted) throw abortError();
+        return nativeFile;
+      } catch (error) {
+        if (signal?.aborted) throw abortError();
+        console.warn("Native LibreDWG conversion failed; trying the offline compatibility engine.", error);
+      }
+    }
     const input = await file.arrayBuffer();
     const { output, savedView } = await runConversionWorker(
       input,
