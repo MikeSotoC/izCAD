@@ -13,6 +13,8 @@ import { DrawingViewer } from "../viewer/DrawingViewer";
 
 type Props = {
   file: File;
+  drawingMode?: boolean;
+  onPoint?(point: { x: number; y: number }): void;
   onProgress(
     phase: LoadingPhase,
     processed: number,
@@ -23,7 +25,7 @@ type Props = {
 };
 
 export const DrawingCanvas = forwardRef<ViewerHandle, Props>(
-  function DrawingCanvas({ file, onProgress, onReady, onError }, ref) {
+  function DrawingCanvas({ file, drawingMode, onPoint, onProgress, onReady, onError }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<DrawingViewer | null>(null);
 
@@ -32,6 +34,9 @@ export const DrawingCanvas = forwardRef<ViewerHandle, Props>(
       () => ({
         execute(command: ViewerCommand) {
           viewerRef.current?.execute(command);
+        },
+        pointFromClient(x: number, y: number) {
+          return viewerRef.current?.pointFromClient(x, y) ?? null;
         },
       }),
       [],
@@ -66,7 +71,11 @@ export const DrawingCanvas = forwardRef<ViewerHandle, Props>(
       };
     }, [file, onError, onProgress, onReady]);
 
-    return <div ref={containerRef} className="drawing-canvas" />;
+    return <div ref={containerRef} className="drawing-canvas"
+      style={{ cursor: drawingMode ? "crosshair" : undefined }}
+      onClick={drawingMode ? (event) => {
+        const point = viewerRef.current?.pointFromClient(event.clientX, event.clientY);
+        if (point) onPoint?.(point);
+      } : undefined} />;
   },
 );
-

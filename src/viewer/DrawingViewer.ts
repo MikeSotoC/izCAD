@@ -80,6 +80,20 @@ export class DrawingViewer {
     }
   }
 
+  pointFromClient(x: number, y: number): { x: number; y: number } | null {
+    const bounds = this.viewer.GetCanvas().getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return null;
+    const camera = this.viewer.GetCamera();
+    camera.updateMatrixWorld();
+    const point = new Vector3(
+      ((x - bounds.left) / bounds.width) * 2 - 1,
+      1 - ((y - bounds.top) / bounds.height) * 2,
+      0,
+    ).unproject(camera);
+    const origin = this.viewer.GetOrigin();
+    return { x: point.x + origin.x, y: point.y + origin.y };
+  }
+
   destroy(): void {
     this.releaseObjectUrl();
     const canvas = this.viewer.GetCanvas();

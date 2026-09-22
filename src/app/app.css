@@ -508,6 +508,29 @@ button:focus-visible {
   background: #0b1118;
 }
 
+.edit-actions {
+  position: absolute;
+  z-index: 10;
+  bottom: 86px;
+  left: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  color: white;
+  background: #172432ee;
+  border-radius: 10px;
+}
+.edit-actions button {
+  color: white;
+  background: #245d86;
+  border: 1px solid #7195ac;
+  border-radius: 6px;
+  padding: 9px 12px;
+}
+.edit-actions button:disabled { opacity: .45; }
+
 .viewer-shell::before {
   display: none;
 }

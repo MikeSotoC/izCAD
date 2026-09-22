@@ -16,6 +16,7 @@ import { LanguageSwitch } from "../components/LanguageSwitch";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { ViewerToolbar } from "../components/ViewerToolbar";
 import { convertDwgToDxf } from "../dwg/convertDwg";
+import { addLineToDxf, type Point } from "../editor/dxfLine";
 import { toDrawingFile } from "../files/fileTypes";
 import { useI18n } from "../i18n/I18nProvider";
 import {
@@ -87,6 +88,9 @@ export function App() {
   const { locale, t } = useI18n();
   const [state, setState] = useState<AppState>({ status: "home" });
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [lineStart, setLineStart] = useState<Point | null>(null);
+  const [edited, setEdited] = useState(false);
   const viewerRef = useRef<ViewerHandle>(null);
   const requestIdRef = useRef(0);
   const incomingRequestIdRef = useRef(0);
@@ -94,6 +98,9 @@ export function App() {
   const conversionAbortRef = useRef<AbortController | null>(null);
 
   const openFile = useCallback(async (file: File, libraryEntryId?: string) => {
+    setDrawingMode(false);
+    setLineStart(null);
+    setEdited(false);
     incomingRequestIdRef.current += 1;
     conversionAbortRef.current?.abort();
     conversionAbortRef.current = null;
@@ -282,6 +289,8 @@ export function App() {
   }, []);
 
   const closeDrawing = useCallback(() => {
+    setDrawingMode(false);
+    setLineStart(null);
     incomingRequestIdRef.current += 1;
     requestIdRef.current += 1;
     conversionAbortRef.current?.abort();
@@ -292,6 +301,37 @@ export function App() {
   const sendCommand = useCallback((command: ViewerCommand) => {
     viewerRef.current?.execute(command);
   }, []);
+
+  const addLine = useCallback(async (point: Point) => {
+    if (!lineStart) {
+      setLineStart(point);
+      return;
+    }
+    if (state.status !== "viewer") return;
+    try {
+      const text = await state.renderFile.text();
+      const updated = addLineToDxf(text, lineStart, point);
+      const name = state.drawing.name.replace(/\.(dwg|dxf)$/i, "") + "-editado.dxf";
+      const renderFile = new File([updated], name, { type: "application/dxf", lastModified: Date.now() });
+      setLineStart(null);
+      setEdited(true);
+      setState({ status: "loading", drawing: state.drawing, renderFile, phase: "fetch", progress: null });
+    } catch (error) {
+      window.alert(`No se pudo editar este DXF: ${String(error)}`);
+    }
+  }, [lineStart, state]);
+
+  const saveEditedDrawing = useCallback(() => {
+    if (state.status !== "viewer") return;
+    const url = URL.createObjectURL(state.renderFile);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = state.renderFile.name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }, [state]);
 
   const canvas =
     (state.status === "loading" && state.renderFile) ||
@@ -307,6 +347,8 @@ export function App() {
           file={
             state.status === "viewer" ? state.renderFile : state.renderFile!
           }
+          drawingMode={drawingMode && state.status === "viewer"}
+          onPoint={(point) => { void addLine(point); }}
           onProgress={handleProgress}
           onReady={handleViewerReady}
           onError={handleViewerError}
@@ -466,6 +508,13 @@ export function App() {
       </header>
 
       <ViewerToolbar onCommand={sendCommand} />
+      <div className="edit-actions">
+        <button type="button" onClick={() => { setDrawingMode(!drawingMode); setLineStart(null); }}>
+          {drawingMode ? "Terminar línea" : "Dibujar línea"}
+        </button>
+        {drawingMode && <span>{lineStart ? "Toca el punto final" : "Toca el punto inicial"}</span>}
+        <button type="button" disabled={!edited} onClick={saveEditedDrawing}>Guardar DXF</button>
+      </div>
     </div>
   );
 }

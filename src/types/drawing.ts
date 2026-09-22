@@ -19,6 +19,7 @@ export type ViewerCommand = "zoom-in" | "zoom-out" | "fit" | "reset";
 
 export type ViewerHandle = {
   execute(command: ViewerCommand): void;
+  pointFromClient(x: number, y: number): { x: number; y: number } | null;
 };
 
 export type AppErrorCode =
